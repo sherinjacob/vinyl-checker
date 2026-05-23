@@ -130,13 +130,6 @@ body {
   border-color: var(--accent);
 }
 
-.capture-slot input[type="file"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  font-size: 0;
-}
 
 .slot-icon {
   font-size: 32px;

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 
 function resizeImage(file, maxSize = 1024) {
   return new Promise((resolve) => {
@@ -27,19 +27,23 @@ function resizeImage(file, maxSize = 1024) {
 }
 
 function CaptureSlot({ label, image, onCapture }) {
-  const inputRef = useRef(null)
-
   async function handleChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    const resized = await resizeImage(file)
-    onCapture(resized)
+    try {
+      const resized = await resizeImage(file)
+      onCapture(resized)
+    } catch (err) {
+      console.error('Image processing failed:', err)
+    }
     e.target.value = ''
   }
 
+  // <label> natively opens the file picker on click — works on iOS Safari
+  // unlike programmatic input.click() which is blocked as a security measure
   return (
-    <div className="capture-slot" onClick={() => inputRef.current?.click()}>
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleChange} />
+    <label className="capture-slot">
+      <input type="file" accept="image/*" onChange={handleChange} style={{ display: 'none' }} />
       {image ? (
         <>
           <img className="slot-preview" src={image} alt={label} />
@@ -53,7 +57,7 @@ function CaptureSlot({ label, image, onCapture }) {
           <span className="slot-label">{label}</span>
         </>
       )}
-    </div>
+    </label>
   )
 }
 
