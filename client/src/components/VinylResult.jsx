@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { findOnWishlist } from '../api'
 
 function groupBySide(tracks) {
   const sides = {}
@@ -35,7 +36,7 @@ function TrackList({ tracks, matchingTitles }) {
   )
 }
 
-export default function VinylResult({ result, frontImage, onAdd, onScanAgain }) {
+export default function VinylResult({ result, wishlist = [], frontImage, onAdd, onScanAgain }) {
   const [adding, setAdding] = useState(false)
   const [added, setAdded] = useState(false)
   const [showTracks, setShowTracks] = useState(true)
@@ -43,6 +44,7 @@ export default function VinylResult({ result, frontImage, onAdd, onScanAgain }) 
   if (!result) return null
 
   const { vinyl, duplicates } = result
+  const onWishlist = result && findOnWishlist(result.vinyl, wishlist)
   const hasExactMatch = !!duplicates?.exactMatch
   const hasPartialMatches = duplicates?.partialMatches?.length > 0
 
@@ -124,6 +126,13 @@ export default function VinylResult({ result, frontImage, onAdd, onScanAgain }) 
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!hasExactMatch && onWishlist && (
+        <div className="alert alert-success">
+          <div className="alert-title">On your wishlist — buy it!</div>
+          {onWishlist.artist} — {onWishlist.album}
         </div>
       )}
 

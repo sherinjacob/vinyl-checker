@@ -4,6 +4,7 @@
 
 const MODEL = 'claude-sonnet-4-6';
 const VINYL_COLS = ['id', 'artist', 'album', 'year', 'label', 'created_at', 'thumb'];
+const WISH_COLS = ['id', 'artist', 'album', 'year', 'added_at'];
 const TRACK_COLS = ['vinyl_id', 'side', 'position', 'title'];
 
 const ANALYZE_PROMPT = `Analyze these vinyl record photos and extract information. Return ONLY a valid JSON object with no markdown, no explanation, no code blocks — just raw JSON:
@@ -33,7 +34,9 @@ function doPost(e) {
     if (!req.secret || req.secret !== props.getProperty('SECRET')) throw new Error('Unauthorized');
 
     let out;
-    if (req.action === 'list') out = { vinyls: listVinyls() };
+    if (req.action === 'list') out = { vinyls: listVinyls(), wishlist: listWishlist() };
+    else if (req.action === 'wishlistAdd') out = withLock(() => wishlistAdd(req.items));
+    else if (req.action === 'wishlistDelete') out = withLock(() => deleteRow('wishlist', WISH_COLS, req.id));
     else if (req.action === 'add') out = withLock(() => addVinyl(req.vinyl));
     else if (req.action === 'setThumb') out = withLock(() => setThumb(req.id, req.thumb));
     else if (req.action === 'delete') out = withLock(() => deleteVinyl(req.id));
@@ -83,6 +86,47 @@ function listVinyls() {
   }));
 }
 
+// Loose key so reissues/punctuation don't create duplicates: "The Beatles"/"Beatles", "Abbey Road (Remastered)"/"Abbey Road"
+function norm(s) {
+  return String(s || '').toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, ' ')
+    .replace(/\b(remaster(ed)?|deluxe|edition|expanded|anniversary|the)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+const key = (artist, album) => norm(artist) + '|' + norm(album);
+
+function listWishlist() {
+  return rows(sheet('wishlist', WISH_COLS)).map(w => ({ ...w, year: w.year === '' ? null : String(w.year) }));
+}
+
+function wishlistAdd(items) {
+  const seen = new Set(rows(sheet('vinyls', VINYL_COLS)).map(v => key(v.artist, v.album)));
+  const wl = rows(sheet('wishlist', WISH_COLS));
+  const inWish = new Set(wl.map(w => key(w.artist, w.album)));
+  const added = [], skipped = [], out = [];
+  for (const it of items || []) {
+    if (!it.artist || !it.album) { skipped.push({ ...it, reason: 'missing fields' }); continue; }
+    const k = key(it.artist, it.album);
+    if (seen.has(k)) { skipped.push({ ...it, reason: 'already own' }); continue; }
+    if (inWish.has(k)) { skipped.push({ ...it, reason: 'already on wishlist' }); continue; }
+    inWish.add(k);
+    added.push(it);
+    out.push([Utilities.getUuid(), it.artist, it.album, it.year || '', new Date().toISOString()]);
+  }
+  if (out.length) {
+    const s = sheet('wishlist', WISH_COLS);
+    s.getRange(s.getLastRow() + 1, 1, out.length, WISH_COLS.length).setNumberFormat('@').setValues(out);
+  }
+  return { added, skipped };
+}
+
+function deleteRow(name, cols, id) {
+  const s = sheet(name, cols);
+  const i = s.getRange(1, 1, s.getLastRow(), 1).getValues().flat().indexOf(id);
+  if (i > 0) s.deleteRow(i + 1);
+  return { success: true };
+}
+
 function addVinyl(v) {
   if (!v || !v.artist || !v.album) throw new Error('Artist and album are required');
   const id = Utilities.getUuid();
@@ -92,6 +136,8 @@ function addVinyl(v) {
     const s = sheet('tracks', TRACK_COLS);
     s.getRange(s.getLastRow() + 1, 1, ts.length, TRACK_COLS.length).setNumberFormat('@').setValues(ts);
   }
+  const ws = sheet('wishlist', WISH_COLS), k = key(v.artist, v.album);
+  rows(ws).map((w, i) => ({ w, row: i + 2 })).reverse().forEach(({ w, row }) => { if (key(w.artist, w.album) === k) ws.deleteRow(row); });
   return { id };
 }
 

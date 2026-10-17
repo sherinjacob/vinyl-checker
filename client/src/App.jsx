@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { listVinyls, addVinyl, makeThumb, getSecret, setSecret } from './api'
+import { listAll, addVinyl, norm, makeThumb, getSecret, setSecret } from './api'
 import ScanVinyl from './components/ScanVinyl'
 import VinylResult from './components/VinylResult'
 import Collection from './components/Collection'
+import Wishlist from './components/Wishlist'
 
 export default function App() {
   const [view, setView] = useState('scan')
   const [analysisResult, setAnalysisResult] = useState(null)
   const [capturedImages, setCapturedImages] = useState({ front: null, back: null })
   const [vinyls, setVinyls] = useState(null)
+  const [wishlist, setWishlist] = useState([])
   const [loadError, setLoadError] = useState(null)
 
   const [passphrase, setPassphrase] = useState('')
@@ -16,7 +18,7 @@ export default function App() {
 
   function load() {
     setLoadError(null)
-    listVinyls().then(v => { setVinyls(v); setNeedLogin(false) }).catch(e => {
+    listAll().then(d => { setVinyls(d.vinyls); setWishlist(d.wishlist || []); setNeedLogin(false) }).catch(e => {
       if (e.message === 'Unauthorized') setNeedLogin(true)
       else setLoadError(e.message)
     })
@@ -53,6 +55,7 @@ export default function App() {
     const thumb = capturedImages.front ? await makeThumb(capturedImages.front) : null
     const { id } = await addVinyl({ ...vinyl, thumb })
     setVinyls(vs => [...vs, { ...vinyl, id, thumb }])
+    setWishlist(ws => ws.filter(w => norm(w.artist) !== norm(vinyl.artist) || norm(w.album) !== norm(vinyl.album)))
     setView('collection')
   }
 
@@ -79,6 +82,12 @@ export default function App() {
           >
             Collection
           </button>
+          <button
+            className={`nav-tab ${view === 'wishlist' ? 'active' : ''}`}
+            onClick={() => setView('wishlist')}
+          >
+            Wishlist
+          </button>
         </div>
       </nav>
 
@@ -88,6 +97,7 @@ export default function App() {
       {vinyls && view === 'result' && (
         <VinylResult
           result={analysisResult}
+          wishlist={wishlist}
           frontImage={capturedImages.front}
           onAdd={handleAddToCollection}
           onScanAgain={goToScan}
@@ -95,6 +105,9 @@ export default function App() {
       )}
       {vinyls && view === 'collection' && (
         <Collection vinyls={vinyls} onScan={goToScan} onDelete={id => setVinyls(vs => vs.filter(v => v.id !== id))} />
+      )}
+      {vinyls && view === 'wishlist' && (
+        <Wishlist wishlist={wishlist} onDelete={id => setWishlist(ws => ws.filter(w => w.id !== id))} />
       )}
     </>
   )

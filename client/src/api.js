@@ -15,13 +15,22 @@ async function call(action, payload = {}) {
   return data
 }
 
-export const listVinyls = () => call('list').then(d => d.vinyls)
+export const listAll = () => call('list')
+export const addWishlistItems = (items) => call('wishlistAdd', { items })
+export const deleteWishlistItem = (id) => call('wishlistDelete', { id })
 export const addVinyl = (vinyl) => call('add', { vinyl })
 export const setThumb = (id, thumb) => call('setThumb', { id, thumb })
 export const deleteVinyl = (id) => call('delete', { id })
 export const analyze = (frontImage, backImage) => call('analyze', { frontImage, backImage }).then(d => d.vinyl)
 
-const norm = (s) => (s || '').toLowerCase().trim()
+// Keep in sync with norm() in apps-script/Code.gs
+export const norm = (s) => String(s || '').toLowerCase()
+  .replace(/\(.*?\)|\[.*?\]/g, ' ')
+  .replace(/\b(remaster(ed)?|deluxe|edition|expanded|anniversary|the)\b/g, ' ')
+  .replace(/[^a-z0-9]+/g, ' ').trim()
+
+export const findOnWishlist = (vinyl, wishlist) =>
+  wishlist.find(w => norm(w.artist) === norm(vinyl.artist) && norm(w.album) === norm(vinyl.album)) || null
 
 // Same rules as the old server-side check: exact artist+album, else shared track titles
 export function findDuplicates(vinyl, collection) {
