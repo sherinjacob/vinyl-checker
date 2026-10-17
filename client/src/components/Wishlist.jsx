@@ -15,6 +15,7 @@ function TrackList({ tracks, owned }) {
               <div key={i} className="tracklist-item">
                 <span className="track-pos">{t.position || i + 1}</span>
                 <span className={`track-title ${dup ? 'match' : ''}`}>
+                  {t.hit && <span style={{ color: 'var(--accent)' }}>★ </span>}
                   {t.title}{dup && ` ⚠ you own this on ${dup}`}
                 </span>
               </div>
@@ -75,7 +76,7 @@ export default function Wishlist({ wishlist, vinyls, onDelete }) {
               <span className="track-pos">{w.year || ''}</span>
               <span className="track-title" style={{ flex: 1, cursor: w.tracks?.length ? 'pointer' : 'default' }}
                 onClick={() => w.tracks?.length && setOpen(open === w.id ? null : w.id)}>
-                {w.album}{w.tracks?.length ? ` · ${w.tracks.length} tracks ${open === w.id ? '▾' : '▸'}` : ''}
+                {w.album}{w.tracks?.length ? ` · ★ ${w.tracks.filter(t => t.hit).length} key songs · ${w.tracks.length} tracks ${open === w.id ? '▾' : '▸'}` : ''}
               </span>
               <button className="delete-btn" onClick={() => handleDelete(w.id)}
                 title={confirming === w.id ? 'Tap again to confirm' : 'Remove'}
