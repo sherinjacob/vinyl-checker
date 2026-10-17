@@ -3,7 +3,7 @@
 // Deploy -> Web app -> Execute as: Me, Who has access: Anyone.
 
 const MODEL = 'claude-sonnet-4-6';
-const VINYL_COLS = ['id', 'artist', 'album', 'year', 'label', 'created_at'];
+const VINYL_COLS = ['id', 'artist', 'album', 'year', 'label', 'created_at', 'thumb'];
 const TRACK_COLS = ['vinyl_id', 'side', 'position', 'title'];
 
 const ANALYZE_PROMPT = `Analyze these vinyl record photos and extract information. Return ONLY a valid JSON object with no markdown, no explanation, no code blocks — just raw JSON:
@@ -35,6 +35,7 @@ function doPost(e) {
     let out;
     if (req.action === 'list') out = { vinyls: listVinyls() };
     else if (req.action === 'add') out = withLock(() => addVinyl(req.vinyl));
+    else if (req.action === 'setThumb') out = withLock(() => setThumb(req.id, req.thumb));
     else if (req.action === 'delete') out = withLock(() => deleteVinyl(req.id));
     else if (req.action === 'analyze') out = { vinyl: analyze(req.frontImage, req.backImage) };
     else throw new Error('Unknown action');
@@ -61,6 +62,8 @@ function sheet(name, cols) {
     s = ss.insertSheet(name);
     s.appendRow(cols);
     s.setFrozenRows(1);
+  } else if (s.getLastColumn() < cols.length) {
+    s.getRange(1, 1, 1, cols.length).setValues([cols]);
   }
   return s;
 }
@@ -75,6 +78,7 @@ function listVinyls() {
   return rows(sheet('vinyls', VINYL_COLS)).map(v => ({
     ...v,
     year: v.year === '' ? null : String(v.year),
+    thumb: v.thumb || null,
     tracks: tracks.filter(t => t.vinyl_id === v.id).map(t => ({ side: t.side, position: String(t.position), title: t.title })),
   }));
 }
@@ -82,13 +86,22 @@ function listVinyls() {
 function addVinyl(v) {
   if (!v || !v.artist || !v.album) throw new Error('Artist and album are required');
   const id = Utilities.getUuid();
-  sheet('vinyls', VINYL_COLS).appendRow([id, v.artist, v.album, v.year || '', v.label || '', new Date().toISOString()]);
+  sheet('vinyls', VINYL_COLS).appendRow([id, v.artist, v.album, v.year || '', v.label || '', new Date().toISOString(), v.thumb || '']);
   const ts = (v.tracks || []).filter(t => t.title).map(t => [id, t.side || '', t.position || '', t.title]);
   if (ts.length) {
     const s = sheet('tracks', TRACK_COLS);
     s.getRange(s.getLastRow() + 1, 1, ts.length, TRACK_COLS.length).setNumberFormat('@').setValues(ts);
   }
   return { id };
+}
+
+function setThumb(id, thumb) {
+  const s = sheet('vinyls', VINYL_COLS);
+  const ids = s.getRange(1, 1, s.getLastRow(), 1).getValues().flat();
+  const i = ids.indexOf(id);
+  if (i < 1) throw new Error('Not found');
+  s.getRange(i + 1, VINYL_COLS.indexOf('thumb') + 1).setValue(thumb);
+  return { success: true };
 }
 
 function deleteVinyl(id) {

@@ -26,8 +26,8 @@ function VinylCard({ vinyl, onDelete }) {
   return (
     <div className="card">
       <div className="card-header">
-        {vinyl.front_image
-          ? <img className="card-thumb" src={vinyl.front_image} alt="cover" />
+        {vinyl.thumb
+          ? <img className="card-thumb" src={vinyl.thumb} alt="cover" />
           : <div className="card-thumb-placeholder">&#9679;</div>
         }
         <div className="card-info">

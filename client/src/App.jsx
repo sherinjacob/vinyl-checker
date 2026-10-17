@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { listVinyls, addVinyl, getSecret, setSecret } from './api'
+import { listVinyls, addVinyl, makeThumb, getSecret, setSecret } from './api'
 import ScanVinyl from './components/ScanVinyl'
 import VinylResult from './components/VinylResult'
 import Collection from './components/Collection'
@@ -50,8 +50,9 @@ export default function App() {
   }
 
   async function handleAddToCollection(vinyl) {
-    const { id } = await addVinyl(vinyl)
-    setVinyls(vs => [...vs, { ...vinyl, id }])
+    const thumb = capturedImages.front ? await makeThumb(capturedImages.front) : null
+    const { id } = await addVinyl({ ...vinyl, thumb })
+    setVinyls(vs => [...vs, { ...vinyl, id, thumb }])
     setView('collection')
   }
 
