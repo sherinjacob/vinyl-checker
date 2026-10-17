@@ -107,7 +107,7 @@ export default function App() {
         <Collection vinyls={vinyls} onScan={goToScan} onDelete={id => setVinyls(vs => vs.filter(v => v.id !== id))} />
       )}
       {vinyls && view === 'wishlist' && (
-        <Wishlist wishlist={wishlist} onDelete={id => setWishlist(ws => ws.filter(w => w.id !== id))} />
+        <Wishlist wishlist={wishlist} vinyls={vinyls} onDelete={id => setWishlist(ws => ws.filter(w => w.id !== id))} />
       )}
     </>
   )

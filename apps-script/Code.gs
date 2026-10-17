@@ -4,7 +4,7 @@
 
 const MODEL = 'claude-sonnet-4-6';
 const VINYL_COLS = ['id', 'artist', 'album', 'year', 'label', 'created_at', 'thumb'];
-const WISH_COLS = ['id', 'artist', 'album', 'year', 'added_at'];
+const WISH_COLS = ['id', 'artist', 'album', 'year', 'added_at', 'tracks'];
 const TRACK_COLS = ['vinyl_id', 'side', 'position', 'title'];
 
 const ANALYZE_PROMPT = `Analyze these vinyl record photos and extract information. Return ONLY a valid JSON object with no markdown, no explanation, no code blocks — just raw JSON:
@@ -36,6 +36,7 @@ function doPost(e) {
     let out;
     if (req.action === 'list') out = { vinyls: listVinyls(), wishlist: listWishlist() };
     else if (req.action === 'wishlistAdd') out = withLock(() => wishlistAdd(req.items));
+    else if (req.action === 'wishlistSetTracks') out = withLock(() => wishlistSetTracks(req.items));
     else if (req.action === 'wishlistDelete') out = withLock(() => deleteRow('wishlist', WISH_COLS, req.id));
     else if (req.action === 'add') out = withLock(() => addVinyl(req.vinyl));
     else if (req.action === 'setThumb') out = withLock(() => setThumb(req.id, req.thumb));
@@ -96,7 +97,11 @@ function norm(s) {
 const key = (artist, album) => norm(artist) + '|' + norm(album);
 
 function listWishlist() {
-  return rows(sheet('wishlist', WISH_COLS)).map(w => ({ ...w, year: w.year === '' ? null : String(w.year) }));
+  return rows(sheet('wishlist', WISH_COLS)).map(w => ({
+    ...w,
+    year: w.year === '' ? null : String(w.year),
+    tracks: w.tracks ? JSON.parse(w.tracks) : [],
+  }));
 }
 
 function wishlistAdd(items) {
@@ -111,13 +116,30 @@ function wishlistAdd(items) {
     if (inWish.has(k)) { skipped.push({ ...it, reason: 'already on wishlist' }); continue; }
     inWish.add(k);
     added.push(it);
-    out.push([Utilities.getUuid(), it.artist, it.album, it.year || '', new Date().toISOString()]);
+    out.push([Utilities.getUuid(), it.artist, it.album, it.year || '', new Date().toISOString(), it.tracks ? JSON.stringify(it.tracks) : '']);
   }
   if (out.length) {
     const s = sheet('wishlist', WISH_COLS);
     s.getRange(s.getLastRow() + 1, 1, out.length, WISH_COLS.length).setNumberFormat('@').setValues(out);
   }
   return { added, skipped };
+}
+
+// items: [{id, tracks: [{side, position, title}]}]; one cell per album holds the tracks as JSON
+function wishlistSetTracks(items) {
+  const s = sheet('wishlist', WISH_COLS);
+  const col = WISH_COLS.indexOf('tracks') + 1;
+  const n = s.getLastRow() - 1;
+  if (n < 1) return { updated: 0 };
+  const ids = s.getRange(2, 1, n, 1).getValues().flat();
+  const vals = s.getRange(2, col, n, 1).getValues();
+  let updated = 0;
+  for (const it of items || []) {
+    const i = ids.indexOf(it.id);
+    if (i >= 0) { vals[i][0] = JSON.stringify(it.tracks || []); updated++; }
+  }
+  s.getRange(2, col, n, 1).setNumberFormat('@').setValues(vals);
+  return { updated };
 }
 
 function deleteRow(name, cols, id) {
