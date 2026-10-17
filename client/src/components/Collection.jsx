@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { deleteVinyl } from '../api'
 
 function groupBySide(tracks) {
   const sides = {}
@@ -16,7 +17,7 @@ function VinylCard({ vinyl, onDelete }) {
 
   async function handleDelete() {
     if (!confirming) { setConfirming(true); return }
-    await fetch(`/api/vinyls/${vinyl.id}`, { method: 'DELETE' })
+    await deleteVinyl(vinyl.id)
     onDelete(vinyl.id)
   }
 
@@ -73,21 +74,8 @@ function VinylCard({ vinyl, onDelete }) {
   )
 }
 
-export default function Collection({ onScan }) {
-  const [vinyls, setVinyls] = useState([])
-  const [loading, setLoading] = useState(true)
+export default function Collection({ vinyls, onScan, onDelete }) {
   const [search, setSearch] = useState('')
-
-  useEffect(() => {
-    fetch('/api/vinyls')
-      .then(r => r.json())
-      .then(data => { setVinyls(data); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
-
-  function handleDelete(id) {
-    setVinyls(vs => vs.filter(v => v.id !== id))
-  }
 
   const filtered = search
     ? vinyls.filter(v =>
@@ -96,16 +84,6 @@ export default function Collection({ onScan }) {
         v.tracks?.some(t => t.title.toLowerCase().includes(search.toLowerCase()))
       )
     : vinyls
-
-  if (loading) {
-    return (
-      <div className="page">
-        <div className="loading-wrap">
-          <div className="spinner" />
-        </div>
-      </div>
-    )
-  }
 
   if (vinyls.length === 0) {
     return (
@@ -143,7 +121,7 @@ export default function Collection({ onScan }) {
       )}
 
       {filtered.map(vinyl => (
-        <VinylCard key={vinyl.id} vinyl={vinyl} onDelete={handleDelete} />
+        <VinylCard key={vinyl.id} vinyl={vinyl} onDelete={onDelete} />
       ))}
     </div>
   )

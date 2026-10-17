@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { analyze, findDuplicates } from '../api'
 
 function resizeImage(file, maxSize = 1024) {
   return new Promise((resolve) => {
@@ -61,7 +62,7 @@ function CaptureSlot({ label, image, onCapture }) {
   )
 }
 
-export default function ScanVinyl({ onAnalysisComplete }) {
+export default function ScanVinyl({ vinyls, onAnalysisComplete }) {
   const [front, setFront] = useState(null)
   const [back, setBack] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -72,14 +73,8 @@ export default function ScanVinyl({ onAnalysisComplete }) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frontImage: front, backImage: back })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Analysis failed')
-      onAnalysisComplete(data, { front, back })
+      const vinyl = await analyze(front, back)
+      onAnalysisComplete({ vinyl, duplicates: findDuplicates(vinyl, vinyls) }, { front, back })
     } catch (err) {
       setError(err.message)
     } finally {
