@@ -1,12 +1,14 @@
 const URL = import.meta.env.VITE_API_URL
-const SECRET = import.meta.env.VITE_API_SECRET
+
+export const getSecret = () => { try { return localStorage.getItem('vc_secret') } catch { return null } }
+export const setSecret = (v) => { try { localStorage.setItem('vc_secret', v) } catch {} }
 
 // text/plain avoids a CORS preflight, which Apps Script web apps can't answer
 async function call(action, payload = {}) {
   const res = await fetch(URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action, secret: SECRET, ...payload })
+    body: JSON.stringify({ action, secret: getSecret(), ...payload })
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)

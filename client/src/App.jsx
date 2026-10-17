@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { listVinyls, addVinyl } from './api'
+import { listVinyls, addVinyl, getSecret, setSecret } from './api'
 import ScanVinyl from './components/ScanVinyl'
 import VinylResult from './components/VinylResult'
 import Collection from './components/Collection'
@@ -11,9 +11,37 @@ export default function App() {
   const [vinyls, setVinyls] = useState(null)
   const [loadError, setLoadError] = useState(null)
 
-  useEffect(() => {
-    listVinyls().then(setVinyls).catch(e => setLoadError(e.message))
-  }, [])
+  const [passphrase, setPassphrase] = useState('')
+  const [needLogin, setNeedLogin] = useState(!getSecret())
+
+  function load() {
+    setLoadError(null)
+    listVinyls().then(v => { setVinyls(v); setNeedLogin(false) }).catch(e => {
+      if (e.message === 'Unauthorized') setNeedLogin(true)
+      else setLoadError(e.message)
+    })
+  }
+
+  useEffect(() => { if (!needLogin) load() }, [])
+
+  function handleLogin(e) {
+    e.preventDefault()
+    setSecret(passphrase.trim())
+    load()
+  }
+
+  if (needLogin) {
+    return (
+      <div className="page">
+        <p className="page-title">Enter passphrase</p>
+        <form onSubmit={handleLogin}>
+          <input className="search-input" type="password" autoFocus value={passphrase}
+            onChange={e => setPassphrase(e.target.value)} placeholder="Passphrase" />
+          <button className="btn btn-primary" type="submit" disabled={!passphrase.trim()}>Unlock</button>
+        </form>
+      </div>
+    )
+  }
 
   function handleAnalysisComplete(result, images) {
     setAnalysisResult(result)
